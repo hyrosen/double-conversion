@@ -1,0 +1,3 @@
+set(uor_description "Google Decimal COnversion Library")
+
+set(uor_version "3.0.0")

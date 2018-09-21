@@ -55,7 +55,8 @@ class DoubleToStringConverter {
     EMIT_POSITIVE_EXPONENT_SIGN = 1,
     EMIT_TRAILING_DECIMAL_POINT = 2,
     EMIT_TRAILING_ZERO_AFTER_POINT = 4,
-    UNIQUE_ZERO = 8
+    UNIQUE_ZERO = 8,
+    TRIM_TRAILING_ZEROES = 16
   };
 
   // Flags should be a bit-or combination of the possible Flags-enum.
@@ -70,6 +71,8 @@ class DoubleToStringConverter {
   //    EXMIT_TRAILING_DECIMAL_POINT flag.
   //    Example: 2345.0 is converted to "2345.0".
   //  - UNIQUE_ZERO: "-0.0" is converted to "0.0".
+  //  - TRIM_TRAILING_ZEROES: extra trailing zeroes are eliminated, in
+  //    conjunction with obeying the EMIT_TRAILING_... flags
   //
   // Infinity symbol and nan_symbol provide the string representation for these
   // special values. If the string is NULL and the special value is encountered
@@ -104,6 +107,9 @@ class DoubleToStringConverter {
   //   ToPrecision(230.0, 2) -> "230"
   //   ToPrecision(230.0, 2) -> "230."  with EMIT_TRAILING_DECIMAL_POINT.
   //   ToPrecision(230.0, 2) -> "2.3e2" with EMIT_TRAILING_ZERO_AFTER_POINT.
+  //
+  // In exponential notation, at least min_exponent_digits will be used for the
+  // exponent, for example 1e01 rather than 1e1 if it is 2.
   DoubleToStringConverter(int flags,
                           const char* infinity_symbol,
                           const char* nan_symbol,
@@ -111,7 +117,8 @@ class DoubleToStringConverter {
                           int decimal_in_shortest_low,
                           int decimal_in_shortest_high,
                           int max_leading_padding_zeroes_in_precision_mode,
-                          int max_trailing_padding_zeroes_in_precision_mode)
+                          int max_trailing_padding_zeroes_in_precision_mode,
+                          int min_exponent_digits = 1)
       : flags_(flags),
         infinity_symbol_(infinity_symbol),
         nan_symbol_(nan_symbol),
@@ -121,7 +128,8 @@ class DoubleToStringConverter {
         max_leading_padding_zeroes_in_precision_mode_(
             max_leading_padding_zeroes_in_precision_mode),
         max_trailing_padding_zeroes_in_precision_mode_(
-            max_trailing_padding_zeroes_in_precision_mode) {
+            max_trailing_padding_zeroes_in_precision_mode),
+        min_exponent_digits_(min_exponent_digits) {
     // When 'trailing zero after the point' is set, then 'trailing point'
     // must be set too.
     ASSERT(((flags & EMIT_TRAILING_DECIMAL_POINT) != 0) ||
@@ -378,6 +386,7 @@ class DoubleToStringConverter {
   const int decimal_in_shortest_high_;
   const int max_leading_padding_zeroes_in_precision_mode_;
   const int max_trailing_padding_zeroes_in_precision_mode_;
+  const int min_exponent_digits_;
 
   DC_DISALLOW_IMPLICIT_CONSTRUCTORS(DoubleToStringConverter);
 };

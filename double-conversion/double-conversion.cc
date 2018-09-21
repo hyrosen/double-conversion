@@ -79,6 +79,11 @@ void DoubleToStringConverter::CreateExponentialRepresentation(
     int exponent,
     StringBuilder* result_builder) const {
   ASSERT(length != 0);
+  if ((flags_ & TRIM_TRAILING_ZEROES) != 0) {
+    while (length > 1 && decimal_digits[length - 1] == '0') {
+      --length;
+    }
+  }
   result_builder->AddCharacter(decimal_digits[0]);
   if (length != 1) {
     result_builder->AddCharacter('.');
@@ -93,16 +98,14 @@ void DoubleToStringConverter::CreateExponentialRepresentation(
       result_builder->AddCharacter('+');
     }
   }
-  if (exponent == 0) {
-    result_builder->AddCharacter('0');
-    return;
-  }
   ASSERT(exponent < 1e4);
   const int kMaxExponentLength = 5;
   char buffer[kMaxExponentLength + 1];
   buffer[kMaxExponentLength] = '\0';
   int first_char_pos = kMaxExponentLength;
-  while (exponent > 0) {
+  while (exponent > 0 ||
+         (first_char_pos > 0 &&
+          kMaxExponentLength - first_char_pos < min_exponent_digits_)) {
     buffer[--first_char_pos] = '0' + (exponent % 10);
     exponent /= 10;
   }
@@ -117,6 +120,11 @@ void DoubleToStringConverter::CreateDecimalRepresentation(
     int decimal_point,
     int digits_after_point,
     StringBuilder* result_builder) const {
+  if ((flags_ & TRIM_TRAILING_ZEROES) != 0) {
+    while (length > 0 && decimal_digits[length - 1] == '0') {
+      --length;
+      }
+  }
   // Create a representation that is padded with zeros if needed.
   if (decimal_point <= 0) {
       // "0.00000decimal_rep" or "0.000decimal_rep00".
@@ -126,16 +134,26 @@ void DoubleToStringConverter::CreateDecimalRepresentation(
       result_builder->AddPadding('0', -decimal_point);
       ASSERT(length <= digits_after_point - (-decimal_point));
       result_builder->AddSubstring(decimal_digits, length);
-      int remaining_digits = digits_after_point - (-decimal_point) - length;
-      result_builder->AddPadding('0', remaining_digits);
+      if ((flags_ & TRIM_TRAILING_ZEROES) == 0) {
+        int remaining_digits = digits_after_point - (-decimal_point) - length;
+        result_builder->AddPadding('0', remaining_digits);
+      }
     }
   } else if (decimal_point >= length) {
     // "decimal_rep0000.00000" or "decimal_rep.0000".
     result_builder->AddSubstring(decimal_digits, length);
     result_builder->AddPadding('0', decimal_point - length);
-    if (digits_after_point > 0) {
-      result_builder->AddCharacter('.');
-      result_builder->AddPadding('0', digits_after_point);
+   if (digits_after_point > 0) {
+      if ((flags_ & EMIT_TRAILING_DECIMAL_POINT) != 0) {
+        result_builder->AddCharacter('.');
+      }
+      if ((flags_ & EMIT_TRAILING_ZERO_AFTER_POINT) != 0) {
+        if ((flags_ & TRIM_TRAILING_ZEROES) != 0) {
+          result_builder->AddCharacter('0');
+        } else {
+          result_builder->AddPadding('0', digits_after_point);
+        }
+      }
     }
   } else {
     // "decima.l_rep000".
@@ -145,8 +163,10 @@ void DoubleToStringConverter::CreateDecimalRepresentation(
     ASSERT(length - decimal_point <= digits_after_point);
     result_builder->AddSubstring(&decimal_digits[decimal_point],
                                  length - decimal_point);
-    int remaining_digits = digits_after_point - (length - decimal_point);
-    result_builder->AddPadding('0', remaining_digits);
+    if ((flags_ & TRIM_TRAILING_ZEROES) == 0) {
+      int remaining_digits = digits_after_point - (length - decimal_point);
+      result_builder->AddPadding('0', remaining_digits);
+    }
   }
   if (digits_after_point == 0) {
     if ((flags_ & EMIT_TRAILING_DECIMAL_POINT) != 0) {
